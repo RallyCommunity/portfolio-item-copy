@@ -20,7 +20,7 @@ Ext.define('CustomApp', {
 			xtype: 'rallyprojectpicker',
 			margin: "5px",
 			model: 'Project',
-			field: 'Name',
+			field: 'Name'
 		},
 		{
 			xtype : "rallybutton",
@@ -53,10 +53,7 @@ Ext.define('CustomApp', {
 			margin : "5px",
 			style : "font-weight:bold;",
 			text : ""
-		},
-
-	]
-	,
+	}],
 
 	chooseItem : function() {
 
@@ -102,7 +99,7 @@ Ext.define('CustomApp', {
 					// check project selected before enabling.
 					var projectRef = app.down("#project-picker").getValue();
 
-					if (projectRef != null && projectRef != "")
+					if (projectRef !== null && projectRef !== "")
 						app.down("#copy-button").setDisabled(false);
 				});
 			});
@@ -152,12 +149,12 @@ Ext.define('CustomApp', {
 			"Name": i.get("Name"),
 			"Workspace" : i.get("Workspace")._ref,
 			"Description" : i.get("Description"),
-			"Owner" : i.get("Owner") != null ? i.get("Owner")._ref : null,
+			"Owner" : i.get("Owner") !== null ? i.get("Owner")._ref : null,
 			"Project" : app.projectRef
-		}
+		};
 
 		var parentRef = app.parentRef(i);
-		if (parentRef!=null) {
+		if (parentRef!==null) {
 			var mappedRef = app.copyList[parentRef.ref];
 			if (!_.isUndefined(mappedRef)) {
 				copy[parentRef.type] = mappedRef;
@@ -179,7 +176,7 @@ Ext.define('CustomApp', {
 					app.copyList[item.source.get("_ref")] = result.get("_ref");
 					app.down("#summary").setText("Created " + result.get("FormattedID"));
 				} else { 
-					console.log("Error",operation.Errors)
+					console.log("Error",operation.Errors);
 				}
 				callback(null,result);
 			}
