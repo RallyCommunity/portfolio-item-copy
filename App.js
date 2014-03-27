@@ -1,4 +1,3 @@
-
 var app = null;
 
 Ext.define('CustomApp', {
@@ -43,7 +42,7 @@ Ext.define('CustomApp', {
 	    	xtype : "label",
 	    	margin : "5px",
 	    	style : "font-weight:bold;",
-	    	text : "foo"
+	    	text : ""
 	    },
     	{
     		id : "copy-button",
