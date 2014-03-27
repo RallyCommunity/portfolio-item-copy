@@ -1,98 +1,88 @@
 var app = null;
 
 Ext.define('CustomApp', {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    layout : {
-    	type : "table",
-    	columns : 2
-    },
+	extend: 'Rally.app.App',
+	componentCls: 'app',
+	layout : {
+		type : "table",
+		columns : 2
+	},
 
-    items:[ 
-    	{
-	    	xtype : "label",
-	        text : 'Copy To Project:',
-	        padding : "5px"
-	    },
+	items:[ 
+		{
+			xtype : "label",
+			text : 'Copy To Project:',
+			padding : "5px"
+		},
 
-    	{
-    		id : "project-picker",
-	        xtype: 'rallyprojectpicker',
-	        margin: "5px",
-	        model: 'Project',
-	        field: 'Name',
-	        listeners :  {
-	        	select : function() {
-	        		// console.log("selected");	
-	        	}
-	        	
-	        }
-    	},
-    	{
-	    	xtype : "rallybutton",
-	    	text : "Select Portfolio Item",
+		{
+			id : "project-picker",
+			xtype: 'rallyprojectpicker',
 			margin: "5px",
-	    	handler : function() {
-	    		// console.log("click");
-	    		app.chooseItem();
-	    	}
-	    },
-	    {
-	    	id : "item-label",
-	    	xtype : "label",
-	    	margin : "5px",
-	    	style : "font-weight:bold;",
-	    	text : ""
-	    },
-    	{
-    		id : "copy-button",
-	    	xtype : "rallybutton",
-	    	text : "Copy",
+			model: 'Project',
+			field: 'Name',
+		},
+		{
+			xtype : "rallybutton",
+			text : "Select Portfolio Item",
+			margin: "5px",
+			handler : function() {
+				app.chooseItem();
+			}
+		},
+		{
+			id : "item-label",
+			xtype : "label",
+			margin : "5px",
+			style : "font-weight:bold;",
+			text : ""
+		},
+		{
+			id : "copy-button",
+			xtype : "rallybutton",
+			text : "Copy",
 			margin: "5px",
 			disabled : true,
-	    	handler : function() {
-	    		app.performCopy();
-	    	}
-	    },
-	     {
-	    	id : "summary",
-	    	xtype : "label",
-	    	margin : "5px",
-	    	style : "font-weight:bold;",
-	    	text : ""
-	    },
+			handler : function() {
+				app.performCopy();
+			}
+		},
+		{
+			id : "summary",
+			xtype : "label",
+			margin : "5px",
+			style : "font-weight:bold;",
+			text : ""
+		},
 
 	]
+	,
 
-    ,
+	chooseItem : function() {
 
-    chooseItem : function() {
+		Ext.create('Rally.ui.dialog.ChooserDialog', {
+			artifactTypes: ['PortfolioItem'],
+			autoShow: true,
+			
+			title: 'Choose Item',
+			listeners: {
+				artifactChosen: function(selectedRecord){
+					this.down("#item-label").setText(selectedRecord.get('Name'));
+					this.down("#copy-button").setDisabled(true);
+					app.itemSelected(selectedRecord);
 
-    	Ext.create('Rally.ui.dialog.ChooserDialog', {
-		    artifactTypes: ['PortfolioItem'],
-		    autoShow: true,
-		    
-		    title: 'Choose Item',
-		    listeners: {
-		        artifactChosen: function(selectedRecord){
-		            this.down("#item-label").setText(selectedRecord.get('Name'));
-		            this.down("#copy-button").setDisabled(true);
-		            app.itemSelected(selectedRecord);
+				},
+				scope: this
+			}
+		});
+	},
 
-		        },
-		        scope: this
-		    }
-		 });
-    },
-
-    itemSelected : function(root) {
+	itemSelected : function(root) {
 
 		var config = {   model : "PortfolioItem",
-                fetch : true,
-                filters : [ { property : "ObjectID", operator : "=", value: root.get("ObjectID") } ]
+			fetch : true,
+			filters : [ { property : "ObjectID", operator : "=", value: root.get("ObjectID") } ]
 		};
-
-		// console.log("config",config);
 
 		// create a list of all items to be copied
 		async.map([config], app.wsapiQuery,function(err,results){
@@ -114,24 +104,21 @@ Ext.define('CustomApp', {
 
 					if (projectRef != null && projectRef != "")
 						app.down("#copy-button").setDisabled(false);
-
-
 				});
 			});
 		});
-    },
+	},
 
-    performCopy : function() {
-    	app.copyList = {};
-    	app.projectRef = app.down("#project-picker").getValue();
+	performCopy : function() {
+		app.copyList = {};
+		app.projectRef = app.down("#project-picker").getValue();
 		async.mapSeries(app.list,app.copyItem,function(err,results) {
-			// console.log("copied to:",results);
 			app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
 		});
 	},
 
-    launch: function() {
-    	app = this;
+	launch: function() {
+		app = this;
 	},
 
 	loadModel : function(type,callback) {
@@ -160,14 +147,12 @@ Ext.define('CustomApp', {
 	},
 
 	copyItem : function(i,callback) {
-		// console.log(i.get("_type"),i.get("FormattedID"), _.isObject(i.get("Parent")), _.isObject(i.get("PortfolioItem")),_.isObject(i.get("WorkProduct")));
 
 		var copy = {
 			"Name": i.get("Name"),
 			"Workspace" : i.get("Workspace")._ref,
 			"Description" : i.get("Description"),
 			"Owner" : i.get("Owner") != null ? i.get("Owner")._ref : null,
-			// "Project" : i.get("Project")._ref
 			"Project" : app.projectRef
 		}
 
@@ -176,9 +161,6 @@ Ext.define('CustomApp', {
 			var mappedRef = app.copyList[parentRef.ref];
 			if (!_.isUndefined(mappedRef)) {
 				copy[parentRef.type] = mappedRef;
-			} else {
-				// console.log(app.copyList);
-				// console.log("no parent for ",parentRef,i.get("FormattedID"));
 			}
 		}
 
@@ -190,67 +172,63 @@ Ext.define('CustomApp', {
 
 	createItem : function(item,callback) {
 		var rec = Ext.create(item.model, item.copy );
-    	rec.save(
-    	{
-       		callback: function(result, operation) {
-       			if (_.isUndefined(operation.Errors)) {
-       				app.copyList[item.source.get("_ref")] = result.get("_ref");
-       				// console.log("Result:",result.get("FormattedID"));
-       				app.down("#summary").setText("Created " + result.get("FormattedID"));
-       			} else { 
-       				console.log("Error",operation.Errors)
-       			}
-       			callback(null,result);
-       		}
-       	});
+		rec.save(
+		{
+			callback: function(result, operation) {
+				if (_.isUndefined(operation.Errors)) {
+					app.copyList[item.source.get("_ref")] = result.get("_ref");
+					app.down("#summary").setText("Created " + result.get("FormattedID"));
+				} else { 
+					console.log("Error",operation.Errors)
+				}
+				callback(null,result);
+			}
+		});
 
 	},
 
+	readCollection : function( collectionConfig, callback ) {
 
-    readCollection : function( collectionConfig, callback ) {
+		collectionConfig.reference.getCollection(collectionConfig.type,{fetch:true}).load({
+			fetch : true,
+			callback : function(records,operation,success) {
+				callback(null,records);
+			}
+		});
 
-    	collectionConfig.reference.getCollection(collectionConfig.type,{fetch:true}).load({
-            fetch : true,
-            callback : function(records,operation,success) {
-                callback(null,records);
-            }
-        });
+	},
 
-    },
+	isObject : function(obj) {
+		return ( !_.isUndefined(obj) && !_.isNull(obj) );
+	},
 
-    isObject : function(obj) {
-    	return ( !_.isUndefined(obj) && !_.isNull(obj) );
-    },
+	defined : function (obj) {
+		return (app.isObject(obj) && obj.Count > 0) ;
+	},
 
-    defined : function (obj) {
-    	return (app.isObject(obj) && obj.Count > 0) ;
-    },
+	createList : function(root,callback) {
 
-    createList : function(root,callback) {
-
-    	var config = {   model : root.raw._type,
-                fetch : true,
-                filters : [ { property : "ObjectID", operator : "=", value: root.get("ObjectID") } ]
+		var config = {   model : root.raw._type,
+				fetch : true,
+				filters : [ { property : "ObjectID", operator : "=", value: root.get("ObjectID") } ]
 		};
 
 		async.map([config], wsapiQuery, function(err,results) {
 
 			var obj = results[0][0];
-			// app.list.push(obj);
-			// console.log("copy",root.get("FormattedID"),app.list.length);
 			app.list.push(obj);
-	    	var childRef = null;
+			var childRef = null;
 			if (app.defined(obj.get("Tasks"))) {
-	    		childRef = "Tasks";
-	    	} else {
-		    	if (app.defined(obj.get("Children"))){
-		    		childRef = "Children";
-		    	} else {
-		    		if (app.defined(obj.get("UserStories"))) {
-		    			childRef = "UserStories";
-		    		} 
-		    	}
-	    	}
+				childRef = "Tasks";
+			} else {
+				if (app.defined(obj.get("Children"))){
+					childRef = "Children";
+				} else {
+					if (app.defined(obj.get("UserStories"))) {
+						childRef = "UserStories";
+					} 
+				}
+			}
 
 			if (app.isObject(childRef)) {
 				var config = { reference : obj, type : childRef };
@@ -261,7 +239,6 @@ Ext.define('CustomApp', {
 					});
 				});
 			} else {
-				
 				callback(null,obj);
 			}
 		});
@@ -269,19 +246,19 @@ Ext.define('CustomApp', {
 
 	wsapiQuery : function( config , callback ) {
 	
-	    Ext.create('Rally.data.WsapiDataStore', {
-	        autoLoad : true,
-	        limit : "Infinity",
-	        model : config.model,
-	        fetch : config.fetch,
-	        filters : config.filters,
-	        listeners : {
-	            scope : this,
-	            load : function(store, data) {
-	                callback(null,data);
-	            }
-	        }
-	    });
+		Ext.create('Rally.data.WsapiDataStore', {
+			autoLoad : true,
+			limit : "Infinity",
+			model : config.model,
+			fetch : config.fetch,
+			filters : config.filters,
+			listeners : {
+				scope : this,
+				load : function(store, data) {
+					callback(null,data);
+				}
+			}
+		});
 	}
 
 });
