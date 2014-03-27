@@ -55,6 +55,11 @@ Ext.define('CustomApp', {
 			text : ""
 	}],
 
+	launch: function() {
+		app = this;
+	},
+
+	// displays a chooser to select the portfolio item
 	chooseItem : function() {
 
 		Ext.create('Rally.ui.dialog.ChooserDialog', {
@@ -74,6 +79,8 @@ Ext.define('CustomApp', {
 		});
 	},
 
+	// called when a portfolio item is chosen. It creates the list of items to be copied and
+	// updates the summary message.
 	itemSelected : function(root) {
 
 		var config = {   model : "PortfolioItem",
@@ -93,7 +100,6 @@ Ext.define('CustomApp', {
 					_.each(app.types,function(t,i) {
 						app.models[t] = results[i];
 					});
-					// console.log("models:",app.models);
 					app.down("#summary").setText(app.list.length + " Items to be copied");
 					
 					// check project selected before enabling.
@@ -106,6 +112,8 @@ Ext.define('CustomApp', {
 		});
 	},
 
+	// performs the copy of items in the list by asynchronously calling copyItem for each item
+	// in the list
 	performCopy : function() {
 		app.copyList = {};
 		app.projectRef = app.down("#project-picker").getValue();
@@ -114,35 +122,7 @@ Ext.define('CustomApp', {
 		});
 	},
 
-	launch: function() {
-		app = this;
-	},
-
-	loadModel : function(type,callback) {
-
-		Rally.data.ModelFactory.getModel({
-			type: type,
-			success: function(model) {
-				callback(null,model);
-			}
-		});
-	},
-
-	parentRef : function(obj) {
-
-		if ( _.isObject(obj.get("Parent"))) {
-			return { type : "Parent", ref :  obj.get("Parent")._ref };
-		}
-		if ( _.isObject(obj.get("WorkProduct"))) {
-			return { type : "WorkProduct", ref : obj.get("WorkProduct")._ref };
-		}
-		if ( _.isObject(obj.get("PortfolioItem"))) {
-			return { type : "PortfolioItem", ref : obj.get("PortfolioItem")._ref };
-		}
-		return null;
-
-	},
-
+	// copies a single item
 	copyItem : function(i,callback) {
 
 		var copy = {
@@ -167,6 +147,7 @@ Ext.define('CustomApp', {
 		});
 	},
 
+	// creates the new item
 	createItem : function(item,callback) {
 		var rec = Ext.create(item.model, item.copy );
 		rec.save(
@@ -184,6 +165,7 @@ Ext.define('CustomApp', {
 
 	},
 
+	// reads a rally collection object
 	readCollection : function( collectionConfig, callback ) {
 
 		collectionConfig.reference.getCollection(collectionConfig.type,{fetch:true}).load({
@@ -195,14 +177,7 @@ Ext.define('CustomApp', {
 
 	},
 
-	isObject : function(obj) {
-		return ( !_.isUndefined(obj) && !_.isNull(obj) );
-	},
-
-	defined : function (obj) {
-		return (app.isObject(obj) && obj.Count > 0) ;
-	},
-
+	// recursive method to create a list of all items to be copied.
 	createList : function(root,callback) {
 
 		var config = {   model : root.raw._type,
@@ -239,6 +214,41 @@ Ext.define('CustomApp', {
 				callback(null,obj);
 			}
 		});
+	},
+
+	// return the type of parent reference
+	parentRef : function(obj) {
+
+		if ( _.isObject(obj.get("Parent"))) {
+			return { type : "Parent", ref :  obj.get("Parent")._ref };
+		}
+		if ( _.isObject(obj.get("WorkProduct"))) {
+			return { type : "WorkProduct", ref : obj.get("WorkProduct")._ref };
+		}
+		if ( _.isObject(obj.get("PortfolioItem"))) {
+			return { type : "PortfolioItem", ref : obj.get("PortfolioItem")._ref };
+		}
+		return null;
+
+	},
+
+	// loads a single rally model for the type
+	loadModel : function(type,callback) {
+
+		Rally.data.ModelFactory.getModel({
+			type: type,
+			success: function(model) {
+				callback(null,model);
+			}
+		});
+	},
+
+	isObject : function(obj) {
+		return ( !_.isUndefined(obj) && !_.isNull(obj) );
+	},
+
+	defined : function (obj) {
+		return (app.isObject(obj) && obj.Count > 0) ;
 	},
 
 	wsapiQuery : function( config , callback ) {
