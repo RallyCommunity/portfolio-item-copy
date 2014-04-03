@@ -65,6 +65,11 @@ Ext.define('CustomApp', {
 			text : ""
 	}],
 
+	launch: function() {
+		app = this;
+	},
+
+	// displays a chooser to select the portfolio item
 	chooseItem : function() {
 
 		Ext.create('Rally.ui.dialog.ChooserDialog', {
@@ -84,6 +89,8 @@ Ext.define('CustomApp', {
 		});
 	},
 
+	// called when a portfolio item is chosen. It creates the list of items to be copied and
+	// updates the summary message.
 	itemSelected : function(root) {
 
 		var config = {   model : "PortfolioItem",
@@ -103,7 +110,6 @@ Ext.define('CustomApp', {
 					_.each(app.types,function(t,i) {
 						app.models[t] = results[i];
 					});
-					// console.log("models:",app.models);
 					app.down("#summary").setText(app.list.length + " Items to be copied");
 					
 					// check project selected before enabling.
@@ -116,52 +122,32 @@ Ext.define('CustomApp', {
 		});
 	},
 
+	// performs the copy of items in the list by asynchronously calling copyItem for each item
+	// in the list
 	performCopy : function() {
 		app.copyList = {};
 		app.projectRef = app.down("#project-picker").getValue();
 		async.mapSeries(app.list,app.copyItem,function(err,results) {
-			app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
-		});
-	},
-
-	launch: function() {
-		app = this;
-	},
-
-	loadModel : function(type,callback) {
-
-		Rally.data.ModelFactory.getModel({
-			type: type,
-			success: function(model) {
-				callback(null,model);
+			if (err===null) {
+				app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
+			} else {
+				app.down("#summary").setText(err);				
 			}
 		});
 	},
 
-	parentRef : function(obj) {
-
-		if ( _.isObject(obj.get("Parent"))) {
-			return { type : "Parent", ref :  obj.get("Parent")._ref };
-		}
-		if ( _.isObject(obj.get("WorkProduct"))) {
-			return { type : "WorkProduct", ref : obj.get("WorkProduct")._ref };
-		}
-		if ( _.isObject(obj.get("PortfolioItem"))) {
-			return { type : "PortfolioItem", ref : obj.get("PortfolioItem")._ref };
-		}
-		return null;
-
-	},
-
+	// copies a single item
 	copyItem : function(i,callback) {
 
 		var copy = {
 			"Name": i.get("Name"),
 			"Workspace" : i.get("Workspace")._ref,
-			"Description" : i.get("Description"),
+			"Description" : encodeURI(i.get("Description")),
 			"Owner" : i.get("Owner") !== null ? i.get("Owner")._ref : null,
 			"Project" : app.projectRef
 		};
+
+		copy = app.copyTypeSpecificFields(copy,i);
 
 		var parentRef = app.parentRef(i);
 		if (parentRef!==null) {
@@ -173,27 +159,77 @@ Ext.define('CustomApp', {
 
 		var model = app.models[i.get("_type")];
 		async.map([{model:model,copy:copy,source:i}],app.createItem,function(err,results){
-			callback(null,results[0]);
+			if (!_.isUndefined(err)&&!_.isNull(err)) {
+				callback(err,null);	
+			} else {
+				callback(null,results[0]);
+			}
 		});
 	},
 
+	copyTypeSpecificFields : function(copy,item) {
+
+		if (item.get("_type").toLowerCase()=="task") {
+			return app.copyTaskFields(copy,item);
+		}
+		if (item.get("_type").toLowerCase()=="hierarchicalrequirement") {
+			return app.copyTaskFields(copy,item);
+		}
+		if (item.get("_type").toLowerCase().indexOf("portfolioitem") !== -1) {
+			return app.copyPortfolioFields(copy,item);
+		}
+
+		return copy;
+
+	},
+
+	copyPortfolioFields : function(copy, item) {
+
+		return copy;
+
+	},
+
+	copyStoryFields : function(copy,item) {
+
+		copy["ScheduleState"] = item.get("ScheduleState");
+		copy["PlanEstimate"] = item.get("PlanEstimate");
+
+		return copy;
+
+	},
+
+	copyTaskFields : function(copy,item) {
+
+		copy["State"] = item.get("State");
+		copy["Estimate"] = item.get("Estimate");
+		copy["TaskIndex"] = item.get("TaskIndex");
+		copy["ToDo"] = item.get("ToDo");
+		copy["Actuals"] = item.get("Actuals");
+
+		return copy;
+
+	},
+
+	// creates the new item
 	createItem : function(item,callback) {
 		var rec = Ext.create(item.model, item.copy );
 		rec.save(
 		{
 			callback: function(result, operation) {
-				if (_.isUndefined(operation.Errors)) {
+				if (operation.success===true) {
 					app.copyList[item.source.get("_ref")] = result.get("_ref");
 					app.down("#summary").setText("Created " + result.get("FormattedID"));
+					callback(null,result);
 				} else { 
-					console.log("Error",operation.Errors);
+					console.log("Error:",operation);
+					callback("Create Error when copying " + item.copy.Name,null);
 				}
-				callback(null,result);
 			}
 		});
 
 	},
 
+	// reads a rally collection object
 	readCollection : function( collectionConfig, callback ) {
 
 		collectionConfig.reference.getCollection(collectionConfig.type,{fetch:true}).load({
@@ -205,14 +241,7 @@ Ext.define('CustomApp', {
 
 	},
 
-	isObject : function(obj) {
-		return ( !_.isUndefined(obj) && !_.isNull(obj) );
-	},
-
-	defined : function (obj) {
-		return (app.isObject(obj) && obj.Count > 0) ;
-	},
-
+	// recursive method to create a list of all items to be copied.
 	createList : function(root,callback) {
 
 		var config = {   model : root.raw._type,
@@ -249,6 +278,41 @@ Ext.define('CustomApp', {
 				callback(null,obj);
 			}
 		});
+	},
+
+	// return the type of parent reference
+	parentRef : function(obj) {
+
+		if ( _.isObject(obj.get("Parent"))) {
+			return { type : "Parent", ref :  obj.get("Parent")._ref };
+		}
+		if ( _.isObject(obj.get("WorkProduct"))) {
+			return { type : "WorkProduct", ref : obj.get("WorkProduct")._ref };
+		}
+		if ( _.isObject(obj.get("PortfolioItem"))) {
+			return { type : "PortfolioItem", ref : obj.get("PortfolioItem")._ref };
+		}
+		return null;
+
+	},
+
+	// loads a single rally model for the type
+	loadModel : function(type,callback) {
+
+		Rally.data.ModelFactory.getModel({
+			type: type,
+			success: function(model) {
+				callback(null,model);
+			}
+		});
+	},
+
+	isObject : function(obj) {
+		return ( !_.isUndefined(obj) && !_.isNull(obj) );
+	},
+
+	defined : function (obj) {
+		return (app.isObject(obj) && obj.Count > 0) ;
 	},
 
 	wsapiQuery : function( config , callback ) {

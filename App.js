@@ -118,7 +118,11 @@ Ext.define('CustomApp', {
 		app.copyList = {};
 		app.projectRef = app.down("#project-picker").getValue();
 		async.mapSeries(app.list,app.copyItem,function(err,results) {
-			app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
+			if (err===null) {
+				app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
+			} else {
+				app.down("#summary").setText(err);				
+			}
 		});
 	},
 
@@ -128,10 +132,12 @@ Ext.define('CustomApp', {
 		var copy = {
 			"Name": i.get("Name"),
 			"Workspace" : i.get("Workspace")._ref,
-			"Description" : i.get("Description"),
+			"Description" : encodeURI(i.get("Description")),
 			"Owner" : i.get("Owner") !== null ? i.get("Owner")._ref : null,
 			"Project" : app.projectRef
 		};
+
+		copy = app.copyTypeSpecificFields(copy,i);
 
 		var parentRef = app.parentRef(i);
 		if (parentRef!==null) {
@@ -143,8 +149,55 @@ Ext.define('CustomApp', {
 
 		var model = app.models[i.get("_type")];
 		async.map([{model:model,copy:copy,source:i}],app.createItem,function(err,results){
-			callback(null,results[0]);
+			if (!_.isUndefined(err)&&!_.isNull(err)) {
+				callback(err,null);	
+			} else {
+				callback(null,results[0]);
+			}
 		});
+	},
+
+	copyTypeSpecificFields : function(copy,item) {
+
+		if (item.get("_type").toLowerCase()=="task") {
+			return app.copyTaskFields(copy,item);
+		}
+		if (item.get("_type").toLowerCase()=="hierarchicalrequirement") {
+			return app.copyTaskFields(copy,item);
+		}
+		if (item.get("_type").toLowerCase().indexOf("portfolioitem") !== -1) {
+			return app.copyPortfolioFields(copy,item);
+		}
+
+		return copy;
+
+	},
+
+	copyPortfolioFields : function(copy, item) {
+
+		return copy;
+
+	},
+
+	copyStoryFields : function(copy,item) {
+
+		copy["ScheduleState"] = item.get("ScheduleState");
+		copy["PlanEstimate"] = item.get("PlanEstimate");
+
+		return copy;
+
+	},
+
+	copyTaskFields : function(copy,item) {
+
+		copy["State"] = item.get("State");
+		copy["Estimate"] = item.get("Estimate");
+		copy["TaskIndex"] = item.get("TaskIndex");
+		copy["ToDo"] = item.get("ToDo");
+		copy["Actuals"] = item.get("Actuals");
+
+		return copy;
+
 	},
 
 	// creates the new item
@@ -153,13 +206,14 @@ Ext.define('CustomApp', {
 		rec.save(
 		{
 			callback: function(result, operation) {
-				if (_.isUndefined(operation.Errors)) {
+				if (operation.success===true) {
 					app.copyList[item.source.get("_ref")] = result.get("_ref");
 					app.down("#summary").setText("Created " + result.get("FormattedID"));
+					callback(null,result);
 				} else { 
-					console.log("Error",operation.Errors);
+					console.log("Error:",operation);
+					callback("Create Error when copying " + item.copy.Name,null);
 				}
-				callback(null,result);
 			}
 		});
 
