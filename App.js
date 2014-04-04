@@ -8,6 +8,12 @@ Ext.define('CustomApp', {
 		columns : 2
 	},
 
+	fieldsToCopy : {
+		portfolioitem : [],
+		hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
+		task : ["State","Estimate","TaskIndex","ToDo","Actuals"]
+	},
+
 	items:[ 
 		{
 			xtype : "label",
@@ -95,11 +101,15 @@ Ext.define('CustomApp', {
 
 			async.map([item],app.createList,function(err,results){
 				app.models = {};
+				// get the distinct set of types from the list.
 				app.types = _.uniq(_.map( app.list, function(l) { return l.get("_type");}));
+				// load the models for the types
 				async.mapSeries(app.types,app.loadModel,function(err,results) {
+					// save the loaded models to an array
 					_.each(app.types,function(t,i) {
 						app.models[t] = results[i];
 					});
+					
 					app.down("#summary").setText(app.list.length + " Items to be copied");
 					
 					// check project selected before enabling.
@@ -159,42 +169,21 @@ Ext.define('CustomApp', {
 
 	copyTypeSpecificFields : function(copy,item) {
 
-		if (item.get("_type").toLowerCase()=="task") {
-			return app.copyTaskFields(copy,item);
+		var type = item.get("_type").toLowerCase().indexOf("portfolioitem") !== -1 ?
+						"portfolioitem" :
+						item.get("_type");
+
+		_.each( app.fieldsToCopy[type], function(field) {
+			copy[field] = item.get(field);
+		})
+
+		// handle tags.
+		if (item.get("Tags").Count > 0) {
+			var tags = _.map(item.get("Tags")._tagsNameArray,function(t) {
+				return { _ref : t._ref };
+			});
+			copy["Tags"] = tags;
 		}
-		if (item.get("_type").toLowerCase()=="hierarchicalrequirement") {
-			return app.copyTaskFields(copy,item);
-		}
-		if (item.get("_type").toLowerCase().indexOf("portfolioitem") !== -1) {
-			return app.copyPortfolioFields(copy,item);
-		}
-
-		return copy;
-
-	},
-
-	copyPortfolioFields : function(copy, item) {
-
-		return copy;
-
-	},
-
-	copyStoryFields : function(copy,item) {
-
-		copy["ScheduleState"] = item.get("ScheduleState");
-		copy["PlanEstimate"] = item.get("PlanEstimate");
-
-		return copy;
-
-	},
-
-	copyTaskFields : function(copy,item) {
-
-		copy["State"] = item.get("State");
-		copy["Estimate"] = item.get("Estimate");
-		copy["TaskIndex"] = item.get("TaskIndex");
-		copy["ToDo"] = item.get("ToDo");
-		copy["Actuals"] = item.get("Actuals");
 
 		return copy;
 
