@@ -142,7 +142,8 @@ Ext.define('CustomApp', {
 		var copy = {
 			"Name": i.get("Name"),
 			"Workspace" : i.get("Workspace")._ref,
-			"Description" : encodeURI(i.get("Description")),
+			// "Description" : encodeURI(i.get("Description")),
+			"Description" : i.get("Description"),
 			"Owner" : i.get("Owner") !== null ? i.get("Owner")._ref : null,
 			"Project" : app.projectRef
 		};
