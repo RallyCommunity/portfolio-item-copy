@@ -10,6 +10,7 @@ Currently it only copies the following fields
 - Description
 - Owner
 - Parent
+- Tags
 
 ![alt text](https://raw.githubusercontent.com/wrackzone/portfolio-item-copy/master/screenshot.png "Screenshot")
 
