@@ -137,11 +137,12 @@ Ext.define('CustomApp', {
 	performCopy : function() {
 		app.copyList = {};
 		app.projectRef = app.down("#project-picker").getValue();
+        
 		async.mapSeries(app.list,app.copyItem,function(err,results) {
 			if (err===null) {
 				app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
 			} else {
-				app.down("#summary").setText(err);				
+				app.down("#summary").setText( err, false );
 			}
 		});
 	},
@@ -186,14 +187,14 @@ Ext.define('CustomApp', {
 
 		_.each( app.fieldsToCopy[type], function(field) {
 			copy[field] = item.get(field);
-		})
+		});
 
 		// handle tags.
 		if (item.get("Tags").Count > 0) {
 			var tags = _.map(item.get("Tags")._tagsNameArray,function(t) {
 				return { _ref : t._ref };
 			});
-			copy["Tags"] = tags;
+			copy.Tags = tags;
 		}
 
 		return copy;
@@ -212,7 +213,11 @@ Ext.define('CustomApp', {
 					callback(null,result);
 				} else { 
 					console.log("Error:",operation);
-					callback("Create Error when copying " + item.copy.Name,null);
+                    var message = "<span class='icon-warning'> </span>Create Error when copying " + item.copy.Name;
+                    if (! Ext.isEmpty( operation.error ) && ! Ext.isEmpty( operation.error.errors) ) {
+                        message += ":<br/>" + operation.error.errors.join('<br/>');
+                    }
+					callback(message,null);
 				}
 			}
 		});
@@ -396,10 +401,11 @@ function pointsUnitType(type) {
 
     <style type="text/css">
         .app {
-     /* Add app styles here */
+  /* Add app styles here */
 }
 
     </style>
 </head>
-<body></body>
+<body>
+</body>
 </html>
