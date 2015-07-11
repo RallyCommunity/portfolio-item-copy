@@ -7,12 +7,14 @@ Ext.define('CustomApp', {
 		type : "table",
 		columns : 2
 	},
-
-	fieldsToCopy : {
-		portfolioitem : [],
-		hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
-		task : ["State","Estimate","TaskIndex","ToDo","Actuals"]
-	},
+    
+    config: {
+        defaultSettings: {
+            portfolioitem : [''],
+            hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
+            task : ["State","Estimate","TaskIndex","ToDo","Actuals"]
+        }
+    },
 
 	items:[ 
 		{
@@ -63,6 +65,26 @@ Ext.define('CustomApp', {
 
 	launch: function() {
 		app = this;
+        var fieldsToCopy = { 
+            portfolioitem : this.getSetting('portfolioitem'),
+            hierarchicalrequirement : this.getSetting('hierarchicalrequirement'),
+            task: this.getSetting('task')
+        };
+        
+        // cleanse because sometimes they aren't arrays coming back
+        if ( !Ext.isEmpty(fieldsToCopy.portfolioitem) && !Ext.isArray(fieldsToCopy.portfolioitem) ){
+            fieldsToCopy.portfolioitem = fieldsToCopy.portfolioitem.split(',');
+        }
+        
+        if ( !Ext.isEmpty(fieldsToCopy.hierarchicalrequirement) && !Ext.isArray(fieldsToCopy.hierarchicalrequirement) ){
+            fieldsToCopy.hierarchicalrequirement = fieldsToCopy.hierarchicalrequirement.split(',');
+        }
+        
+        if ( !Ext.isEmpty(fieldsToCopy.task) && !Ext.isArray(fieldsToCopy.task) ){
+            fieldsToCopy.task = fieldsToCopy.task.split(',');
+        }
+        
+        app.fieldsToCopy = fieldsToCopy;
 	},
 
 	// displays a chooser to select the portfolio item
@@ -171,12 +193,22 @@ Ext.define('CustomApp', {
 
 	copyTypeSpecificFields : function(copy,item) {
 
+        console.log('copyTypeSpecificFields', copy, item);
+        
 		var type = item.get("_type").toLowerCase().indexOf("portfolioitem") !== -1 ?
 						"portfolioitem" :
 						item.get("_type");
+        
+        console.log( 'type/fields', type, app.fieldsToCopy[type]);
+        
+        reference_fields = ['Release','Iteration','Owner'];
 
 		_.each( app.fieldsToCopy[type], function(field) {
-			copy[field] = item.get(field);
+            if ( !Ext.isEmpty(item.get(field)) && Ext.Array.contains(reference_fields, field) ) {
+                copy[field] = { _ref: item.get(field)._ref }
+            } else {
+                copy[field] = item.get(field);
+            }
 		});
 
 		// handle tags.
@@ -193,6 +225,8 @@ Ext.define('CustomApp', {
 
 	// creates the new item
 	createItem : function(item,callback) {
+        console.log('createItem',item);
+        
 		var rec = Ext.create(item.model, item.copy );
 		rec.save(
 		{
@@ -216,7 +250,6 @@ Ext.define('CustomApp', {
 
 	// reads a rally collection object
 	readCollection : function( collectionConfig, callback ) {
-
 		collectionConfig.reference.getCollection(collectionConfig.type,{fetch:true}).load({
 			fetch : true,
 			callback : function(records,operation,success) {
@@ -315,6 +348,83 @@ Ext.define('CustomApp', {
 				}
 			}
 		});
-	}
+	},
+
+    getSettingsFields: function() {
+        return [{
+            name: 'portfolioitem',
+            xtype: 'rallyfieldpicker',
+            autoExpand: true,
+            alwaysExpanded: false,
+            modelTypes: ['PortfolioItem/Feature'],
+            margin: '10px 0 10px 0',
+            fieldLabel: 'Feature Fields',
+            _shouldShowField: function(field) {
+                //console.log(field.name, field);
+                var attr = field.attributeDefinition;
+                //console.log('...',attr);
+                
+                return attr && !attr.ReadOnly && attr.AttributeType !== 'COLLECTION';
+            },
+            listeners: {
+                ready: function(picker){ picker.collapse(); }
+            },
+            readyEvent: 'ready' 
+            
+        },
+        {
+            name: 'hierarchicalrequirement',
+            xtype: 'rallyfieldpicker',
+            autoExpand: true,
+            alwaysExpanded: false,
+            modelTypes: ['HierarchicalRequirement'],
+            margin: '10px 0 10px 0',
+            fieldLabel: 'Story Fields',
+            _shouldShowField: function(field) {
+                //console.log(field.name, field);
+                var attr = field.attributeDefinition;
+                //console.log('...',attr);
+                
+                return attr && !attr.ReadOnly && attr.AttributeType !== 'COLLECTION';
+            },
+            listeners: {
+                ready: function(picker){ picker.collapse(); }
+            },
+            readyEvent: 'ready' 
+        },
+        {
+            name: 'task',
+            xtype: 'rallyfieldpicker',
+            autoExpand: true,
+            alwaysExpanded: false,
+            modelTypes: ['Task'],
+            margin: '10px 0 200px 0',
+            fieldLabel: 'Task Fields',
+            _shouldShowField: function(field) {
+                //console.log(field.name, field);
+                var attr = field.attributeDefinition;
+                //console.log('...',attr);
+                
+                return attr && !attr.ReadOnly && attr.AttributeType !== 'COLLECTION';
+            },
+            listeners: {
+                ready: function(picker){ picker.collapse(); }
+            },
+            readyEvent: 'ready' 
+        }];
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        console.log('onSettingsUpdate',settings);
+        Ext.apply(this, settings);
+        
+        this.launch();
+    }
+    
 
 });
