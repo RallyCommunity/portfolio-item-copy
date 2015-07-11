@@ -41,9 +41,21 @@ Ext.define('CustomApp', {
         {
             id : "item-label",
             xtype : "label",
-            margin : "5px",
+            margin : 5,
             style : "font-weight:bold;",
             text : ""
+        },
+        {
+            itemId: 'release-label',
+            xtype:'label',
+            padding: 5,
+            text: ''
+        
+        },
+        {
+            itemId: 'release-chooser',
+            xtype: 'container',
+            margin: 5
         },
         {
             id : "copy-button",
@@ -83,8 +95,27 @@ Ext.define('CustomApp', {
         if ( !Ext.isEmpty(fieldsToCopy.task) && !Ext.isArray(fieldsToCopy.task) ){
             fieldsToCopy.task = fieldsToCopy.task.split(',');
         }
-        
+
         app.fieldsToCopy = fieldsToCopy;
+        
+        this._getRequiredFields().then({
+            scope: this,
+            success: function(requiredFields) {
+                app.requiredFields = requiredFields;
+                // make sure required fields are part of the settings:
+                Ext.apply(app.fieldsToCopy, requiredFields);
+                
+                if ( Ext.Array.contains( requiredFields.hierarchicalrequirement, 'Release' )) {
+                    this.down('#release-label').setText('Default Release:');
+                    
+                    this.down('#release-chooser').removeAll();
+                    this.down('#release-chooser').add({
+                        xtype:'rallyreleasecombobox',
+                        showArrows: false
+                    });
+                }
+            }
+        });
     },
 
     // displays a chooser to select the portfolio item
@@ -192,24 +223,20 @@ Ext.define('CustomApp', {
     },
 
     copyTypeSpecificFields : function(copy,item) {
-
-        console.log('copyTypeSpecificFields', copy, item);
-        
         var type = item.get("_type").toLowerCase().indexOf("portfolioitem") !== -1 ?
                         "portfolioitem" :
                         item.get("_type");
         
-        console.log( 'type/fields', type, app.fieldsToCopy[type]);
-        
         reference_fields = ['Release','Iteration','Owner'];
 
-        _.each( app.fieldsToCopy[type], function(field) {
-            if ( !Ext.isEmpty(item.get(field)) && Ext.Array.contains(reference_fields, field) ) {
-                copy[field] = { _ref: item.get(field)._ref }
+        Ext.Array.each( this.fieldsToCopy[type], function(field) {
+            var item_release = this._getRelease(item);
+            if ( !Ext.isEmpty(item_release) && Ext.Array.contains(reference_fields, field) ) {
+                copy[field] = { _ref: item_release._ref };
             } else {
                 copy[field] = item.get(field);
             }
-        });
+        }, this);
 
         // handle tags.
         if (item.get("Tags").Count > 0) {
@@ -220,13 +247,19 @@ Ext.define('CustomApp', {
         }
 
         return copy;
-
     },
+    
+    _getRelease: function(item) {
+        var release = item.get('Release');
+        if ( Ext.isEmpty(release) && this.down('rallyreleasecombobox' )) {
+            release = this.down('rallyreleasecombobox').getRecord().getData();
+        }
+        return release;
+    },
+    
 
     // creates the new item
-    createItem : function(item,callback) {
-        console.log('createItem',item);
-        
+    createItem : function(item,callback) {        
         var rec = Ext.create(item.model, item.copy );
         rec.save(
         {
@@ -350,6 +383,44 @@ Ext.define('CustomApp', {
         });
     },
 
+    _getRequiredFields: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Deft.Promise.all([
+            this._getRequiredFieldsForModel('portfolioitem'),
+            this._getRequiredFieldsForModel('hierarchicalrequirement'),
+            this._getRequiredFieldsForModel('task')
+        ]).then({
+            scope: this,
+            success: function(results) {
+                deferred.resolve({
+                    'portfolioitem': results[0],
+                    'hierarchicalrequirement': results[1],
+                    'task': results[2]
+                });
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _getRequiredFieldsForModel: function(model_name) {
+        var deferred = Ext.create('Deft.Deferred');
+        Rally.data.ModelFactory.getModel({
+            type: model_name,
+            success: function(model) {
+                var fields = model.getFields();
+                var required_fields = [];
+                Ext.Array.each(fields, function(field){
+                    if ( field.required && !field.readOnly ) {
+                        required_fields.push(field.name);
+                    }
+                });
+                deferred.resolve( required_fields );
+            }
+        });
+        return deferred.promise;
+    },
+    
     getSettingsFields: function() {
         return [{
             name: 'portfolioitem',
