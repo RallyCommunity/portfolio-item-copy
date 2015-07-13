@@ -53,7 +53,7 @@ function snapshotQuery( config ,callback) {
 }
 
 function pointsUnitType(type) {
-        return type=="Points";
+    return type=="Points";
 }
 
 
