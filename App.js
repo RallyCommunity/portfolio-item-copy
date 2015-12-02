@@ -199,7 +199,7 @@ Ext.define('CustomApp', {
             // "Description" : encodeURI(i.get("Description")),
             "Description" : i.get("Description"),
             "Owner" : i.get("Owner") !== null ? i.get("Owner")._ref : null,
-            "Project" : app.projectRef
+            // "Project" : app.projectRef
         };
 
         copy = app.copyTypeSpecificFields(copy,i);
@@ -261,6 +261,8 @@ Ext.define('CustomApp', {
     // creates the new item
     createItem : function(item,callback) {        
         var rec = Ext.create(item.model, item.copy );
+        // set the destination project
+        rec.set("Project",app.projectRef);
         rec.save(
         {
             callback: function(result, operation) {
