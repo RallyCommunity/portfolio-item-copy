@@ -210,6 +210,8 @@ Ext.define('CustomApp', {
             "Description" : i.get("Description"),
             "Owner" : i.get("Owner") !== null ? i.get("Owner")._ref : null,
             // "Project" : app.projectRef
+            "DisplayColor" : !_.isNull(i.get("DisplayColor")) && !_.isUndefined(i.get("DisplayColor")) ?
+                i.get("DisplayColor") : null
         };
 
         copy = app.copyTypeSpecificFields(copy,i);
