@@ -33,6 +33,7 @@ Ext.define('CustomApp', {
         },
         {
             xtype : "rallybutton",
+            id   : 'select-pi-button',
             text : "Select Portfolio Item",
             margin: "5px",
             handler : function() {
@@ -142,6 +143,7 @@ Ext.define('CustomApp', {
     // called when a portfolio item is chosen. It creates the list of items to be copied and
     // updates the summary message.
     itemSelected : function(root) {
+        app.down('#summary').setLoading("");
         
         var config = {   
             model : "PortfolioItem",
@@ -165,6 +167,7 @@ Ext.define('CustomApp', {
                         app.models[t] = results[i];
                     });
                     
+                    app.down('#summary').setLoading(false);
                     app.down("#summary").setText(app.list.length + " Items to be copied");
                     
                     // check project selected before enabling.
@@ -183,6 +186,9 @@ Ext.define('CustomApp', {
     // performs the copy of items in the list by asynchronously calling copyItem for each item
     // in the list
     performCopy : function() {
+        app.down("#copy-button").setDisabled(true);
+        app.down("#select-pi-button").setDisabled(true);
+                    
         app.copyList = {};
         app.projectRef = app.down("#project-picker").getValue();
         
@@ -192,6 +198,9 @@ Ext.define('CustomApp', {
             } else {
                 app.down("#summary").setText( err, false );
             }
+            app.down("#copy-button").setDisabled(false);
+            app.down("#select-pi-button").setDisabled(false);
+
         });
     },
 
