@@ -24,7 +24,8 @@ Ext.define('CustomApp', {
             hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
             task : ["State","Estimate","TaskIndex","ToDo","Actuals"],
             preserve_rank: true,
-            allow_current_project: false
+            allow_current_project: false,
+            ignore_state: false
         }
     },
 
@@ -93,6 +94,12 @@ Ext.define('CustomApp', {
             html : ""
     }],
 
+    _ignoreFields: {
+        'hierarchicalrequirement': ['FlowState'],
+        'task': [],
+        'portfolioitem': []
+    },
+    
     launch: function() {
         app = this;
         var fieldsToCopy = { 
@@ -117,6 +124,11 @@ Ext.define('CustomApp', {
         if ( app.getSetting('allow_current_project') && app.getSetting('allow_current_project') != "false" ) {
             var current_project_ref = app.getContext().getProjectRef();
             app.down("#project-picker").setValue(current_project_ref);
+        }
+        
+        if ( app.getSetting('ignore_state') && app.getSetting('ignore_state') != "false" ) {
+            app._ignoreFields.hierarchicalrequirement.push('ScheduleState');
+            app._ignoreFields.task.push('State');
         }
 
         app.setSummary();
@@ -181,7 +193,15 @@ Ext.define('CustomApp', {
         if ( app.list && app.list.length > 0 && !error ) {
             go_button.setDisabled(false);
         }
-            
+    },
+    
+    updateSummary: function(msg) {
+        var summary_box = app.down('#summary');
+                    
+        if ( Ext.isEmpty(summary_box) ) { return; }
+        
+        summary_box.removeAll();
+        summary_box.add({xtype:'container', html: msg});
     },
 
     // displays a chooser to select the portfolio item
@@ -250,9 +270,9 @@ Ext.define('CustomApp', {
         
         async.mapSeries(app.list,app.copyItem,function(err,results) {
             if (err===null) {
-                app.down("#summary").setText(results.length + " Items copied to " + results[0].get("FormattedID"));
+                app.updateSummary(results.length + " Items copied to " + results[0].get("FormattedID"));
             } else {
-                app.down("#summary").setText( err, false );
+                app.updateSummary(err);
             }
             app.down("#copy-button").setDisabled(false);
             app.down("#select-pi-button").setDisabled(false);
@@ -340,7 +360,8 @@ Ext.define('CustomApp', {
             callback: function(result, operation) {
                 if (operation.success===true) {
                     app.copyList[item.source.get("_ref")] = result.get("_ref");
-                    app.down("#summary").setText("Created " + result.get("FormattedID"));
+                    app.updateSummary("Created " + result.get("FormattedID"));
+                    
                     callback(null,result);
                 } else { 
                     console.log("Error:",operation);
@@ -507,6 +528,14 @@ Ext.define('CustomApp', {
         return deferred.promise;
     },
     
+    _isValidField: function(field,model_name) {
+        if (Ext.Array.contains(app._ignoreFields[model_name],field.name)) {
+            return false;
+        }
+        
+        return ( field.required && !field.readOnly );
+    },
+    
     _getRequiredFieldsForModel: function(model_name) {
         var deferred = Ext.create('Deft.Deferred');
         Rally.data.ModelFactory.getModel({
@@ -515,7 +544,7 @@ Ext.define('CustomApp', {
                 var fields = model.getFields();
                 var required_fields = [];
                 Ext.Array.each(fields, function(field){
-                    if ( field.required && !field.readOnly ) {
+                    if ( app._isValidField(field,model_name) ) {
                         required_fields.push(field.name);
                     }
                 });
@@ -528,16 +557,22 @@ Ext.define('CustomApp', {
     getSettingsFields: function() {
         return [
             {
+                name: 'preserve_rank',
+                xtype: 'rallycheckboxfield',
+                margin: '10px 0 10px 0',
+                fieldLabel: 'Keep Rank (slower)'
+            },
+            {
                 name: 'allow_current_project',
                 xtype: 'rallycheckboxfield',
                 margin: '10px 0 10px 0',
                 fieldLabel: 'Allow Into Current Project'
             },
             {
-                name: 'preserve_rank',
+                name: 'ignore_state',
                 xtype: 'rallycheckboxfield',
                 margin: '10px 0 10px 0',
-                fieldLabel: 'Keep Rank (slower)'
+                fieldLabel: 'Skip State Fields'
             },
             {
             name: 'portfolioitem',
