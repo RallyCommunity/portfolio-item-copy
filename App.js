@@ -13,7 +13,8 @@ Ext.define('CustomApp', {
             portfolioitem : [''],
             hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
             task : ["State","Estimate","TaskIndex","ToDo","Actuals"],
-            preserve_rank: true
+            preserve_rank: true,
+            allow_current_project: false
         }
     },
 
@@ -29,7 +30,12 @@ Ext.define('CustomApp', {
             xtype: 'rallyprojectpicker',
             margin: "5px",
             model: 'Project',
-            field: 'Name'
+            field: 'Name',
+            listeners: {
+                change: function() {
+                    app.setSummary();
+                }
+            }
         },
         {
             xtype : "rallybutton",
@@ -71,10 +77,10 @@ Ext.define('CustomApp', {
         },
         {
             id : "summary",
-            xtype : "label",
+            xtype : "container",
             margin : "5px",
             style : "font-weight:bold;",
-            text : ""
+            html : ""
     }],
 
     launch: function() {
@@ -97,7 +103,14 @@ Ext.define('CustomApp', {
         if ( !Ext.isEmpty(fieldsToCopy.task) && !Ext.isArray(fieldsToCopy.task) ){
             fieldsToCopy.task = fieldsToCopy.task.split(',');
         }
+        
+        if ( app.getSetting('allow_current_project') && app.getSetting('allow_current_project') != "false" ) {
+            var current_project_ref = app.getContext().getProjectRef();
+            app.down("#project-picker").setValue(current_project_ref);
+        }
 
+        app.setSummary();
+        
         app.fieldsToCopy = fieldsToCopy;
         
         this._getRequiredFields().then({
@@ -118,6 +131,47 @@ Ext.define('CustomApp', {
                 }
             }
         });
+    },
+    
+    isDisallowedProject: function(value) {
+        if ( Ext.isEmpty(value) ) { 
+            return "Must choose a project";
+        }
+        if ( app.getSetting('allow_current_project') && app.getSetting('allow_current_project') != "false" ) {
+            return false;
+        }
+        var current_project_ref = app.getContext().getProjectRef();
+        if ( current_project_ref == value ) {
+            return "Cannot choose current project.";
+        }
+        return false;
+        
+    },
+    
+    setSummary: function() {
+        var summary_box = app.down('#summary');
+        var go_button = app.down("#copy-button");
+                    
+        if ( Ext.isEmpty(summary_box) ) { return; }
+        
+        go_button.setDisabled(true);
+        summary_box.removeAll();
+        
+        var project_ref = app.down("#project-picker").getValue();
+        var error = app.isDisallowedProject(project_ref);
+        
+        var summary_array = [] ;
+        if ( error ) { summary_array.push({xtype:'container', html: error}); }
+        
+        if ( app.list && app.list.length > 0 ) {
+            summary_array.push({xtype:'container', html: app.list.length + " Items to be copied"});
+        }
+        summary_box.add(summary_array);
+        
+        if ( app.list && app.list.length > 0 && !error ) {
+            go_button.setDisabled(false);
+        }
+            
     },
 
     // displays a chooser to select the portfolio item
@@ -168,16 +222,8 @@ Ext.define('CustomApp', {
                     });
                     
                     app.down('#summary').setLoading(false);
-                    app.down("#summary").setText(app.list.length + " Items to be copied");
-                    
-                    // check project selected before enabling.
-                    var projectRef = app.down("#project-picker").getValue();
+                    app.setSummary();
 
-//                    Ext.Array.each(app.list, function(item){
-//                        console.log('name', item.get('Name'));
-//                    });
-                    if (projectRef !== null && projectRef !== "")
-                        app.down("#copy-button").setDisabled(false);
                 });
             });
         });
@@ -330,7 +376,13 @@ Ext.define('CustomApp', {
             var obj = results[0][0];
             var direction = "DESC";
             
+            if ( Ext.isEmpty(obj) ) {
+                callback(null,[]);
+                return;
+            }
+                        
             app.list.push(obj);
+
             var childRef = null;
             if (app.defined(obj.get("Tasks"))) {
                 childRef = "Tasks";
@@ -465,6 +517,12 @@ Ext.define('CustomApp', {
     
     getSettingsFields: function() {
         return [
+            {
+                name: 'allow_current_project',
+                xtype: 'rallycheckboxfield',
+                margin: '10px 0 10px 0',
+                fieldLabel: 'Allow Into Current Project'
+            },
             {
                 name: 'preserve_rank',
                 xtype: 'rallycheckboxfield',
