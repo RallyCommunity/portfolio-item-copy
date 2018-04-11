@@ -19,6 +19,10 @@ function wsapiQuery( config , callback ) {
     Ext.create('Rally.data.WsapiDataStore', {
         autoLoad : true,
         limit : "Infinity",
+        context: {
+            project: null,
+            workspace: Rally.environment.getContext().getWorkspaceRef()
+        },
         model : config.model,
         fetch : config.fetch,
         filters : config.filters,
