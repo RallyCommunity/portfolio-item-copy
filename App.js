@@ -121,13 +121,19 @@ Ext.define('CustomApp', {
     // displays a chooser to select the portfolio item
     chooseItem : function() {
 
-        Ext.create('Rally.ui.dialog.ChooserDialog', {
+        Ext.create('Rally.ui.dialog.ArtifactChooserDialog', {
             artifactTypes: ['PortfolioItem'],
             autoShow: true,
             
+            //override to allow pi's in projects with only
+            //read access
+            _isArtifactEditable: function(record) {
+              return true;
+            },
+            
             title: 'Choose Item',
             listeners: {
-                artifactChosen: function(selectedRecord){
+                artifactChosen: function(dialog, selectedRecord){
                     this.down("#item-label").setText(selectedRecord.get('Name'));
                     this.down("#copy-button").setDisabled(true);
                     app.itemSelected(selectedRecord);
@@ -233,10 +239,16 @@ Ext.define('CustomApp', {
 
         Ext.Array.each( this.fieldsToCopy[type], function(field) {
             var item_release = this._getRelease(item);
-            if ( !Ext.isEmpty(item_release) && Ext.Array.contains(reference_fields, field) ) {
-                copy[field] = { _ref: item_release._ref };
+            if (field === 'FlowState') {
+                if (Rally.util.Ref.getRelativeUri(item.get('Project')) === app.projectRef) {
+                    copy[field] = Rally.util.Ref.getRelativeUri(item.get('FlowState'));
+                }
             } else {
-                copy[field] = item.get(field);
+                if ( !Ext.isEmpty(item_release) && Ext.Array.contains(reference_fields, field) ) {
+                    copy[field] = { _ref: item_release._ref };
+                } else {
+                    copy[field] = item.get(field);
+                }
             }
         }, this);
 
@@ -374,6 +386,10 @@ Ext.define('CustomApp', {
     
         Ext.create('Rally.data.WsapiDataStore', {
             autoLoad : true,
+            context: {
+                project: null,
+                workspace: app.getContext().getWorkspaceRef()
+            },
             limit : "Infinity",
             model : config.model,
             fetch : config.fetch,
