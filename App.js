@@ -12,7 +12,8 @@ Ext.define('CustomApp', {
         defaultSettings: {
             portfolioitem : [''],
             hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
-            task : ["State","Estimate","TaskIndex","ToDo","Actuals"]
+            task : ["State","Estimate","TaskIndex","ToDo","Actuals"],
+            preserve_rank: true,
         }
     },
 
@@ -136,7 +137,7 @@ Ext.define('CustomApp', {
             title: 'Choose Item',
             listeners: {
                 artifactChosen: function(dialog, selectedRecord){
-                    this.down("#item-label").setText(selectedRecord.get('Name'));
+                    this.down("#item-label").setText(selectedRecord.get('FormattedID') + ' - ' + selectedRecord.get('Name'));
                     this.down("#copy-button").setDisabled(true);
                     app.itemSelected(selectedRecord);
 
@@ -150,6 +151,8 @@ Ext.define('CustomApp', {
     // updates the summary message.
     itemSelected : function(root) {
 
+        app.setLoading('Analyzing hierarchy...');
+        
         var config = {   model : "PortfolioItem",
             fetch : true,
             filters : [ { property : "ObjectID", operator : "=", value: root.get("ObjectID") } ]
@@ -176,8 +179,11 @@ Ext.define('CustomApp', {
                     // check project selected before enabling.
                     var projectRef = app.down("#project-picker").getValue();
 
-                    if (projectRef !== null && projectRef !== "")
+                    if (projectRef !== null && projectRef !== "") {
                         app.down("#copy-button").setDisabled(false);
+                    }
+
+                    app.setLoading(false);
                 });
             });
         });
@@ -284,7 +290,8 @@ Ext.define('CustomApp', {
             callback: function(result, operation) {
                 if (operation.success===true) {
                     app.copyList[item.source.get("_ref")] = result.get("_ref");
-                    app.down("#summary").setText("Created " + result.get("FormattedID"));
+                    app.down("#summary").setText('(' + _.keys(app.copyList).length + ' of ' + app.list.length + '): ' +
+                        "Created " + result.get("FormattedID") + ' - ' + result.get("Name"));
                     callback(null,result);
                 } else { 
                     console.log("Error:",operation);
@@ -301,7 +308,13 @@ Ext.define('CustomApp', {
 
     // reads a rally collection object
     readCollection : function( collectionConfig, callback ) {
-        collectionConfig.reference.getCollection(collectionConfig.type,{fetch:true}).load({
+        var rank_field = Rally.data.Ranker.getRankField(collectionConfig.reference);
+        var direction = collectionConfig.direction;
+
+        collectionConfig.reference.getCollection(collectionConfig.type, {
+            fetch: true,
+            sorters: [ { property: rank_field, direction: direction} ]
+        }).load({
             fetch : true,
             callback : function(records,operation,success) {
                 callback(null,records);
@@ -313,7 +326,8 @@ Ext.define('CustomApp', {
     // recursive method to create a list of all items to be copied.
     createList : function(root,callback) {
 
-        var config = {   model : root.raw._type,
+        var config = {   
+                model : root.raw._type,
                 fetch : true,
                 filters : [ { property : "ObjectID", operator : "=", value: root.get("ObjectID") } ]
         };
@@ -321,13 +335,18 @@ Ext.define('CustomApp', {
         async.map([config], wsapiQuery, function(err,results) {
 
             var obj = results[0][0];
+            var direction = "DESC";
             app.list.push(obj);
             var childRef = null;
             if (app.defined(obj.get("Tasks"))) {
                 childRef = "Tasks";
+                direction = "DESC";
             } else {
-                if (app.defined(obj.get("Children"))){
+                if (app.defined(obj.get("Children"))) {
                     childRef = "Children";
+                    if (/PortfolioItem/.test(root.raw._type)) {
+                        direction = "ASC";
+                    }
                 } else {
                     if (app.defined(obj.get("UserStories"))) {
                         childRef = "UserStories";
@@ -336,13 +355,22 @@ Ext.define('CustomApp', {
             }
 
             if (app.isObject(childRef)) {
-                var config = { reference : obj, type : childRef };
-                async.map([config],app.readCollection,function(err,results){
-                    var children = results[0];
-                    async.map(children,app.createList,function(err,results){
-                        callback(null,results);
+                var config = { reference : obj, type : childRef, direction: direction };
+                if ( app.getSetting('preserve_rank') && app.getSetting('preserve_rank') != "false" ) {
+                    async.mapSeries([config],app.readCollection,function(err,results){
+                        var children = results[0];
+                        async.mapSeries(children,app.createList,function(err,results){
+                            callback(null,results);
+                        });
                     });
-                });
+                } else {
+                    async.map([config],app.readCollection,function(err,results){
+                        var children = results[0];
+                        async.map(children,app.createList,function(err,results){
+                            callback(null,results);
+                        });
+                    });
+                }
             } else {
                 callback(null,obj);
             }
@@ -396,6 +424,7 @@ Ext.define('CustomApp', {
             model : config.model,
             fetch : config.fetch,
             filters : config.filters,
+            sorters: config.sorters,
             listeners : {
                 scope : this,
                 load : function(store, data) {
@@ -444,7 +473,14 @@ Ext.define('CustomApp', {
     },
     
     getSettingsFields: function() {
-        return [{
+        return [
+            {
+                name: 'preserve_rank',
+                xtype: 'rallycheckboxfield',
+                margin: '10px 0 10px 0',
+                fieldLabel: 'Maintain Ranks'
+            },
+            {
             name: 'portfolioitem',
             xtype: 'rallyfieldpicker',
             autoExpand: true,
