@@ -103,7 +103,9 @@ Ext.define('CustomApp', {
             success: function(requiredFields) {
                 app.requiredFields = requiredFields;
                 // make sure required fields are part of the settings:
-                Ext.apply(app.fieldsToCopy, requiredFields);
+                _.each(_.keys(app.fieldsToCopy), function(type) {
+                    app.fieldsToCopy[type] = _.uniq(app.fieldsToCopy[type].concat(requiredFields[type]));
+                });
                 
                 if ( Ext.Array.contains( requiredFields.hierarchicalrequirement, 'Release' )) {
                     this.down('#release-label').setText('Default Release:');
@@ -447,9 +449,9 @@ Ext.define('CustomApp', {
             xtype: 'rallyfieldpicker',
             autoExpand: true,
             alwaysExpanded: false,
-            modelTypes: ['PortfolioItem/Feature'],
+            modelTypes: ['PortfolioItem'],
             margin: '10px 0 10px 0',
-            fieldLabel: 'Feature Fields',
+            fieldLabel: 'Portfolio Item Fields',
             _shouldShowField: function(field) {
                 //console.log(field.name, field);
                 var attr = field.attributeDefinition;
