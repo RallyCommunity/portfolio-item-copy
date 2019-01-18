@@ -19,19 +19,19 @@ This app can be configured via the Edit App Settings gear menu item.
 
 ![](images/settings.png)
 
-### Maintain Ranks  
+#### Maintain Ranks  
 
 This allows for the rank order to be maintained in the copy.  For large trees, this could be slower.  (default: true)
 
-### Feature Fields
+#### Feature Fields
 
 Use to set additional fields from PortfolioItems to copy beyond the default and required fields.
 
-### Story Fields
+#### Story Fields
 
 Use to set additional fields from User Stories to copy beyond the default and required fields.
 
-### Task Fields
+#### Task Fields
 
 Use to set additional fields from Tasks to copy beyond the default and required fields.
 
