@@ -1,7 +1,4 @@
-portfolio-item-copy
-=========================
-
-## Overview
+# Portfolio Item Copy
 
 This app copies a portfolio item and its descendants, including other portfolio items, user stories (including user story hierarchies) and tasks. 
 
