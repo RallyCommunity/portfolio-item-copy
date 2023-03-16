@@ -11,8 +11,8 @@ Ext.define('CustomApp', {
     config: {
         defaultSettings: {
             portfolioitem : [''],
-            hierarchicalrequirement : ["ScheduleState","PlanEstimate"],
-            task : ["State","Estimate","TaskIndex","ToDo","Actuals"],
+            hierarchicalrequirement : ["PlanEstimate"],
+            task : ["Estimate","TaskIndex","ToDo","Actuals"],
             preserve_rank: true,
         }
     },
@@ -247,17 +247,12 @@ Ext.define('CustomApp', {
 
         Ext.Array.each( this.fieldsToCopy[type], function(field) {
             var item_release = this._getRelease(item);
-            if (field === 'FlowState') {
-                if (Rally.util.Ref.getRelativeUri(item.get('Project')) === app.projectRef) {
-                    copy[field] = Rally.util.Ref.getRelativeUri(item.get('FlowState'));
+            if ( !Ext.isEmpty(item_release) && Ext.Array.contains(reference_fields, field) ) {
+                copy[field] = { _ref: item_release._ref };
+               } else {
+                copy[field] = item.get(field);
                 }
-            } else {
-                if ( !Ext.isEmpty(item_release) && Ext.Array.contains(reference_fields, field) ) {
-                    copy[field] = { _ref: item_release._ref };
-                } else {
-                    copy[field] = item.get(field);
-                }
-            }
+            
         }, this);
 
         // handle tags.
